@@ -1,89 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="auth">
-	
-	<resultMap id="UserResult" type="com.example.menu.security.model.dto.AuthDto$User" 
-	autoMapping="true">
-		<id property="id" column="ID" />
-		<collection property="roles" ofType="java.lang.String">
-			<result column="AUTHORITY" />
-		</collection>
-	</resultMap>
-	
-	<select id="findUserByEmail" resultMap="UserResult">
-		SELECT ID, EMAIL, NAME, PROFILE, PASSWORD, AUTHORITY
-		FROM USERS U 
-		LEFT JOIN USER_CREDENTIALS UC ON U.ID = UC.USER_ID
-		JOIN USER_AUTHORITY UA ON U.ID = UA.USER_ID
-		WHERE UPPER(EMAIL) = UPPER(#{email})
-	</select>
-	
-	<select id="findUserByProvider" resultMap="UserResult">
-		SELECT U.ID, EMAIL, NAME, PROFILE, AUTHORITY
-		FROM USERS U 
-		LEFT JOIN USER_IDENTITIES UI ON U.ID = UI.USER_ID
-		JOIN USER_AUTHORITY UA ON U.ID = UA.USER_ID
-		WHERE UI.PROVIDER = #{provider} 
-			AND UI.PROVIDER_USER_ID=#{providerId}
-	</select>
-	
-	<!-- 자동 회원가입 코드(USERS, CRED, AUTH) -->
-	<insert id="insertUser">
-		<selectKey keyProperty="id" resultType="long" order="BEFORE">
-			SELECT SQE_USERS_ID.NEXTVAL FROM DUAL
-		</selectKey>
-		INSERT INTO USERS(ID, EMAIL, NAME, PROFILE)
-		VALUES(#{id},#{email},#{name} , #{profile})
-	</insert>
-	
-	<insert id="insertCred">
-		INSERT INTO USER_CREDENTIALS (USER_ID, PASSWORD)
-		VALUES (#{userId}, #{password})
-	</insert>
-	
-	<insert id="insertUserRole">
-		INSERT ALL
-		<foreach collection="roles" item="role">
-			INTO USER_AUTHORITY(USER_ID, AUTHORITY) 
-			VALUES (#{userId}, #{role})
-		</foreach>
-		SELECT 1 FROM DUAL
-	</insert>
-	
-	<select id="findUserByUserId" resultMap="UserResult">
-		SELECT id, email, name ,profile, authority
-		FROM USERS U
-		LEFT JOIN USER_CREDENTIALS UC ON U.ID = UC.USER_ID
-		JOIN USER_AUTHORITY UA ON U.ID = UA.USER_ID
-		WHERE U.ID = #{id}
-	</select>
-	
-	<insert id="insertUserIdentities">
-		INSERT INTO USER_IDENTITIES
-		VALUES(SEQ_USER_IDENTITIES_ID.NEXTVAL , 
-		#{userId},#{accessToken},#{provider},#{providerUserId})
-	</insert>
-	
-	<update id="updateUserIdentities">
-		UPDATE USER_IDENTITIES SET
-		ACCESS_TOKEN = #{accessToken}
-		WHERE PROVIDER = #{provider}
-		  AND PROVIDER_USER_ID = #{providerUserId}
-	</update>
-	
-	<select id="getKakaoAccessToken" resultType="string">
-		SELECT ACCESS_TOKEN
-		FROM USER_IDENTITIES
-		WHERE USER_ID = #{userId}
-	</select>
-	
-	
+
+    <resultMap id="UserResult" type="com.example.menu.security.model.dto.AuthDto$User" autoMapping="true">
+        <id property="id" column="ID"/>
+        <collection property="roles" ofType="java.lang.String">
+            <result column="AUTHORITY"/>
+        </collection>
+    </resultMap>
+
+    <select id="findUserByEmail" resultMap="UserResult">
+        SELECT U.USER_NO AS ID, U.USER_ID AS EMAIL, U.USER_NAME AS NAME, 
+               UC.USER_PWD AS PASSWORD, R.ROLE_NAME AS AUTHORITY
+        FROM "USER" U
+        LEFT JOIN USER_CREDENTIALS UC ON U.USER_NO = UC.USER_NO
+        LEFT JOIN ROLE R ON U.ROLE_ID = R.ROLE_ID
+        WHERE UPPER(U.EMAIL) = UPPER(#{email})
+    </select>
+
+    <select id="findUserByUserId" resultMap="UserResult">
+        SELECT U.USER_NO AS ID, U.USER_ID AS EMAIL, U.USER_NAME AS NAME, 
+               UC.USER_PWD AS PASSWORD, R.ROLE_NAME AS AUTHORITY
+        FROM "USER" U
+        LEFT JOIN USER_CREDENTIALS UC ON U.USER_NO = UC.USER_NO
+        LEFT JOIN ROLE R ON U.ROLE_ID = R.ROLE_ID
+        WHERE U.USER_NO = #{id}
+    </select>
+
+    <select id="findUserByProvider" resultMap="UserResult">
+        SELECT U.USER_NO AS ID, U.USER_ID AS EMAIL, U.USER_NAME AS NAME, R.ROLE_NAME AS AUTHORITY
+        FROM "USER" U
+        LEFT JOIN USER_IDENTITIES UI ON U.USER_NO = UI.USER_NO
+        LEFT JOIN ROLE R ON U.ROLE_ID = R.ROLE_ID
+        WHERE UI.PROVIDER = #{provider} AND UI.PROVIDER_USER_NO = #{providerId}
+    </select>
+
+    <insert id="insertUser">
+        <selectKey keyProperty="id" resultType="long" order="BEFORE">
+            SELECT SEQ_USER_NO.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO "USER" (USER_NO, USER_ID, USER_NAME, EMAIL, ROLE_ID, USER_LAN)
+        VALUES (#{id}, #{email}, #{name}, #{email}, 1, 0)
+    </insert>
+
+    <insert id="insertCred">
+        INSERT INTO USER_CREDENTIALS (USER_NO, USER_PWD) VALUES (#{userId}, #{password})
+    </insert>
+
+    <insert id="insertUserRole">
+        UPDATE "USER" SET ROLE_ID = 1 WHERE USER_NO = #{userId}
+    </insert>
+
+    <insert id="insertUserIdentities">
+        INSERT INTO USER_IDENTITIES (IDEN_NO, USER_NO, PROVIDER, PROVIDER_USER_NO, ACCESS_TOKEN)
+        VALUES (SEQ_USER_NO.NEXTVAL, #{userId}, #{provider}, #{providerUserId}, #{accessToken})
+    </insert>
+
+    <update id="updateUserIdentities">
+        UPDATE USER_IDENTITIES SET ACCESS_TOKEN = #{accessToken}
+        WHERE PROVIDER = #{provider} AND PROVIDER_USER_NO = #{providerUserId}
+    </update>
 
 </mapper>
-
-
-
-
-
-
-

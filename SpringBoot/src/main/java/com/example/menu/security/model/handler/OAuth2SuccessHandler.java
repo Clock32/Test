@@ -24,57 +24,39 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class OAuth2SuccessHandler implements AuthenticationSuccessHandler{
-	
-	
+public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-	// Oauth2방식 인증 성공시 실행할 이벤트 핸들러
-	//  클라이언트에게 access, refresh토큰등을 발급.
-	
-	private final JWTProvider jwt;
-	
-	@Override
-	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-			Authentication authentication) throws IOException, ServletException {
-		CustomOAuth2User oauthUser = 
-						(CustomOAuth2User)authentication.getPrincipal();
-		
-		Long id = (Long) oauthUser.getUserId();
-		
-		String accessToken = jwt.createAccessToken(id, 30);
-		String refreshToken = jwt.createRefreshToken(id, 7);
-		String roles = oauthUser
-				.getAuthorities().stream()
-				.map(GrantedAuthority::getAuthority)
-				.collect(Collectors.joining("|"));
-		
-		ResponseCookie accessCookie = CookieUtil
-				.createTokenCookie(CookieUtil.ACCESS_COOKIE, accessToken.toString() , 30);
-		
-		ResponseCookie refreshCookie = CookieUtil
-				.createTokenCookie(CookieUtil.REFERSH_COOKIE, refreshToken.toString(), 7);
-		
-		ResponseCookie roleCookie = CookieUtil
-				.createTokenCookie(CookieUtil.ROLE_COOKIE, roles, 30);
-		
-		response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
-		response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-		response.addHeader(HttpHeaders.SET_COOKIE, roleCookie.toString());
-		
-		String redirect = UriComponentsBuilder
-				.fromUriString("http://localhost:3000/oauth2/success")
-				.build().toUriString();
-		
-		response.sendRedirect(redirect);
-	}
+    private final JWTProvider jwt;
 
-	
-	
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+            Authentication authentication) throws IOException, ServletException {
+        
+        CustomOAuth2User oauthUser = (CustomOAuth2User) authentication.getPrincipal();
+        Long id = oauthUser.getUserId();
+        
+        // 토큰 생성
+        String accessToken = jwt.createAccessToken(id, 30);
+        String refreshToken = jwt.createRefreshToken(id, 7);
+        String roles = oauthUser.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining("|"));
+        
+        // 기존 CookieUtil을 사용한 쿠키 생성
+        ResponseCookie accessCookie = CookieUtil.createTokenCookie(CookieUtil.ACCESS_COOKIE, accessToken, 30);
+        ResponseCookie refreshCookie = CookieUtil.createTokenCookie(CookieUtil.REFERSH_COOKIE, refreshToken, 60 * 24 * 7); // 7일
+        ResponseCookie roleCookie = CookieUtil.createTokenCookie(CookieUtil.ROLE_COOKIE, roles, 30);
+        
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, roleCookie.toString());
+        
+        // Next.js 콜백 경로로 리다이렉트
+        String redirect = UriComponentsBuilder
+                .fromUriString("http://localhost:3000/oauth2/success")
+                .build().toUriString();
+        
+        log.info("OAuth2 Success: Redirecting to {}", redirect);
+        response.sendRedirect(redirect);
+    }
 }
-
-
-
-
-
-
-
