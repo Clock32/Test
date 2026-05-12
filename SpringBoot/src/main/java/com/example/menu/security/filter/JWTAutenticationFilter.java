@@ -59,8 +59,7 @@ public class JWTAutenticationFilter extends OncePerRequestFilter {
 						.stream()
 						.map( s -> new SimpleGrantedAuthority(s))
 						.toList());
-				// 6) 스레드 로컬에 토큰 저장
-				SecurityContextHolder.getContext().setAuthentication(authToken);
+				// 6) 스레드 로컬에 토큰 저장cation(authToken);
 			}
 		}catch(ExpiredJwtException e) {
 			// 인증정보가 있었다면 초기화

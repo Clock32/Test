@@ -26,73 +26,82 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @EnableWebSecurity
 public class SecurityConfig {
+
 	@Bean
 	public SecurityFilterChain filterChain(
-			HttpSecurity http ,
+			HttpSecurity http,
 			JWTAutenticationFilter jwtFilter,
 			OAuth2Service service,
-			OAuth2SuccessHandler handler
-			) throws Exception {
+			OAuth2SuccessHandler handler) throws Exception {
+
 		http
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			.csrf(csrf -> csrf.disable())
-			.exceptionHandling(e-> e.authenticationEntryPoint((req, res, ex)-> {
-				// 인증실패시 401에러
-				res.sendError(HttpServletResponse.SC_UNAUTHORIZED,"UNAUTHORIZED");
-			})
-			.accessDeniedHandler((req, res, ex) -> {
-				// 인가실패시 403에러
-				res.sendError(HttpServletResponse.SC_FORBIDDEN,"FORBIDDEN");
-			}))
-			.sessionManagement( management -> 
-				management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			//. oauth2인증설정
-			.oauth2Login( oauth -> oauth
-					.userInfoEndpoint( u -> u.userService(service))
-					.successHandler(handler)					
-					)
-			.authorizeHttpRequests( auth ->
-					auth
-					.requestMatchers("/auth/login","/auth/signup","/auth/logout","/auth/refresh").permitAll()
-					.requestMatchers("/oauth2/**","/login**","/error").permitAll()
-					.requestMatchers("/**").authenticated()
+			.exceptionHandling(e -> e
+				.authenticationEntryPoint((req, res, ex) ->
+					res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED"))
+				.accessDeniedHandler((req, res, ex) ->
+					res.sendError(HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN"))
+			)
+			.sessionManagement(m ->
+				m.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			// OAuth2 카카오 로그인 설정
+			.oauth2Login(oauth -> oauth
+				.userInfoEndpoint(u -> u.userService(service))
+				.successHandler(handler))
+			.authorizeHttpRequests(auth -> auth
+				// 인증 없이 허용할 경로
+				.requestMatchers(
+					"/auth/login",
+					"/auth/signup",
+					"/auth/logout",
+					"/auth/refresh"
+				).permitAll()
+				.requestMatchers("/oauth2/**", "/login**", "/error").permitAll()
+				// 나머지 모든 요청은 인증 필요
+				.requestMatchers("/**").authenticated()
 			);
-		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);		
-		
-		return http.build();		
+
+		// JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 삽입
+		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+		return http.build();
 	}
-	
-	// CORS설정정보를 가진 빈객체
+
+	/**
+	 * CORS 설정
+	 * ✅ 수정: OPTIONS 메서드 추가 (Preflight 요청 허용)
+	 * ✅ 수정: Set-Cookie 헤더 노출 추가
+	 */
+	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		
-		// 허용 Origin설정
+
+		// Next.js 프론트엔드 도메인만 허용
 		config.setAllowedOrigins(List.of("http://localhost:3000"));
-		
-		// 허용 메서드 설정
-		config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE"));
-		// 허용 헤더설정
+
+		// ✅ OPTIONS 추가: 브라우저가 실제 요청 전 preflight(OPTIONS)를 먼저 보내므로 반드시 필요
+		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+		// 모든 헤더 허용
 		config.setAllowedHeaders(List.of("*"));
-		config.setExposedHeaders(List.of("Location","Authorization"));
-		config.setAllowCredentials(true);//세션,쿠키 허용설정
+
+		// ✅ Set-Cookie 추가: 쿠키 응답 헤더를 브라우저에서 읽을 수 있도록 노출
+		config.setExposedHeaders(List.of("Location", "Authorization", "Set-Cookie"));
+
+		// 쿠키/세션 포함 허용 (credentials: "include" 와 대응)
+		config.setAllowCredentials(true);
+
+		// preflight 캐시 1시간
 		config.setMaxAge(3600L);
-		
+
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", config);
-		
 		return source;
 	}
-	
-	
+
 	@Bean
 	public PasswordEncoder passwordEncoder() {
-		PasswordEncoder encoder = new BCryptPasswordEncoder();
-		return encoder;
+		return new BCryptPasswordEncoder();
 	}
-	
 }
-
-
-
-
-
